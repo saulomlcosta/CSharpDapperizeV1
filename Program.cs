@@ -29,6 +29,7 @@ const string connectionString = "Server=localhost,1450; Database=balta; User ID=
 
 using (var connection = new SqlConnection(connectionString))
 {
+    // ListCategories(connection);
     // CreateCategory(connection);
     // UpdateCategory(connection);
     // DeleteCategory(connection);
@@ -37,7 +38,8 @@ using (var connection = new SqlConnection(connectionString))
     // ExecuteProcedure(connection);
     // ReadProcedure(connection);
     // ExecuteScalar(connection);
-    // ListCategories(connection);
+    // ReadView(connection);
+    // OneToOne(connection);
 }
 
 static void ListCategories(SqlConnection connection)
@@ -230,6 +232,43 @@ static void ExecuteScalar(SqlConnection connection)
     });
 
     Console.WriteLine($"Categoria {categoryId} inserida com sucesso!");
+}
+
+//View
+static void ReadView(SqlConnection connection)
+{
+    var sql = "SELECT * FROM [vwCourses]";
+
+    var courses = connection.Query(sql);
+    foreach (var item in courses)
+    {
+        Console.WriteLine($"{item.Id} - {item.Title}");
+    }
+
+}
+
+//Relationships
+static void OneToOne(SqlConnection connection)
+{
+    var sql = @"SELECT 
+                  *
+                FROM
+                    [CareerItem]
+                INNER JOIN
+                    [Course] ON [CareerItem].[CourseId] = [Course].[Id]";
+
+    var items = connection.Query<CareerItem, Course, CareerItem>(
+        sql,
+        (careerItem, course) =>
+        {
+            careerItem.Course = course;
+            return careerItem;
+        }, splitOn: "Id");
+
+    foreach (var item in items)
+    {
+        Console.WriteLine($"Item: {item.Title} - Curso: {item.Course.Title}");
+    }
 }
 
 Console.ReadLine();
