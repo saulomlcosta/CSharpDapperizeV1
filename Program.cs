@@ -34,8 +34,10 @@ using (var connection = new SqlConnection(connectionString))
     // DeleteCategory(connection);
     // CreateManyCategories(connection);
     // GetCategory(connection);
-    ExecuteProcedure(connection);
-    ListCategories(connection);
+    // ExecuteProcedure(connection);
+    // ReadProcedure(connection);
+    // ExecuteScalar(connection);
+    // ListCategories(connection);
 }
 
 static void ListCategories(SqlConnection connection)
@@ -151,6 +153,7 @@ static void DeleteCategory(SqlConnection connection)
     Console.WriteLine($"{rows} linhas removidas!");
 }
 
+//Procedures
 static void ExecuteProcedure(SqlConnection connection)
 {
     var procedure = "[spDeleteStudent]";
@@ -161,6 +164,72 @@ static void ExecuteProcedure(SqlConnection connection)
         commandType: CommandType.StoredProcedure);
 
     Console.WriteLine($"{affectedRows} linhas afetadas!");
+}
+
+static void ReadProcedure(SqlConnection connection)
+{
+    var procedure = "[spGetCoursesByCategory]";
+    var param = new { CategoryId = "09ce0b7b-cfca-497b-92c0-3290ad9d5142" };
+    var courses = connection.Query<Category>(
+        procedure,
+        param,
+        commandType: CommandType.StoredProcedure);
+
+    foreach (var item in courses)
+    {
+        Console.WriteLine($"{item.Id} - {item.Title}");
+    }
+}
+
+//ExecuteScalar
+static void ExecuteScalar(SqlConnection connection)
+{
+    var category = new Category();
+    category.Title = "Amazon AWS";
+    category.Url = "amazon";
+    category.Description = "Categoria destinada a serviços da Amazon";
+    category.Order = 10;
+    category.Summary = "AWS Cloud";
+    category.Featured = false;
+
+    var insertSql = $@"
+        INSERT INTO 
+            [Category] 
+        OUTPUT inserted.[Id]
+        VALUES (
+            NEWID(), 
+            @Title, 
+            @Url, 
+            @Description, 
+            @Order, 
+            @Summary, 
+            @Featured)";
+
+    // If we use int as ID, Return a ID after created with SCOPE_IDENTITY
+    // var insertSql = $@"
+    //     INSERT INTO 
+    //         [Category] 
+    //     VALUES (
+    //         NEWID(), 
+    //         @Title, 
+    //         @Url, 
+    //         @Description, 
+    //         @Order, 
+    //         @Summary, 
+    //         @Featured)
+    //     SELECT SCOPE_IDENTITY()";
+
+    var categoryId = connection.ExecuteScalar<Guid>(insertSql, new
+    {
+        Title = category.Title,
+        Url = category.Url,
+        Description = category.Description,
+        Order = category.Order,
+        Summary = category.Summary,
+        Featured = category.Featured
+    });
+
+    Console.WriteLine($"Categoria {categoryId} inserida com sucesso!");
 }
 
 Console.ReadLine();
