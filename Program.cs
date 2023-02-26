@@ -40,6 +40,11 @@ using (var connection = new SqlConnection(connectionString))
     // ExecuteScalar(connection);
     // ReadView(connection);
     // OneToOne(connection);
+    // OneToMany(connection);
+    // QueryMultiple(connection);
+    // SelectIn(connection);
+    // Like(connection, "api");
+    Transaction(connection);
 }
 
 static void ListCategories(SqlConnection connection)
@@ -271,4 +276,137 @@ static void OneToOne(SqlConnection connection)
     }
 }
 
+static void OneToMany(SqlConnection connection)
+{
+    var sql = @"SELECT 
+                  [Career].[Id],
+                  [Career].[Title],
+                  [CareerItem].[CareerId],
+                  [CareerItem].[Title]
+                FROM
+                    [Career]
+                INNER JOIN
+                    [CareerItem] ON [CareerItem].[CareerId] = [Career].[Id]
+                ORDER BY
+                    [Career].[Title];";
+
+    var careers = new List<Career>();
+    var items = connection.Query<Career, CareerItem, Career>(
+        sql,
+        (career, item) =>
+        {
+            var car = careers.Where(x => x.Id == career.Id).FirstOrDefault();
+            if (car == null)
+            {
+                car = career;
+                car.Items.Add(item);
+                careers.Add(car);
+            }
+            else
+            {
+                car.Items.Add(item);
+            }
+
+            return career;
+        }, splitOn: "CareerId");
+
+    foreach (var career in careers)
+    {
+        Console.WriteLine($"{career.Title}");
+        foreach (var item in career.Items)
+        {
+            Console.WriteLine($" - {item.Title}");
+        }
+    }
+}
+
+static void QueryMultiple(SqlConnection connection)
+{
+    var query = @"SELECT * FROM [Category]; SELECT * FROM [Course];";
+
+    using (var multi = connection.QueryMultiple(query))
+    {
+        var categories = multi.Read<Category>();
+        var courses = multi.Read<Course>();
+
+        foreach (var item in categories)
+        {
+            Console.WriteLine($"Categoria: {item.Title}");
+        }
+
+        foreach (var item in courses)
+        {
+            Console.WriteLine($"Curso: {item.Title}");
+        }
+    }
+}
+
+static void SelectIn(SqlConnection connection)
+{
+    var query = @"SELECT * FROM [Career] WHERE [Id] IN @Id";
+
+    var items = connection.Query<Career>(query, new
+    {
+        Id = new[]
+            {
+                "e6730d1c-6870-4df3-ae68-438624e04c72",
+                "4327ac7e-963b-4893-9f31-9a3b28a4e72b"
+            }
+    });
+
+    foreach (var item in items)
+    {
+        Console.WriteLine(item.Title);
+    }
+}
+
+static void Like(SqlConnection connection, string term)
+{
+    var query = @"SELECT * FROM [Course] WHERE [Title] LIKE @exp";
+
+    var items = connection.Query<Course>(query, new
+    {
+        exp = $"%{term}%"
+    });
+
+    foreach (var item in items)
+    {
+        Console.WriteLine(item.Title);
+    }
+}
+
+static void Transaction(SqlConnection connection)
+{
+    var category = new Category();
+    category.Id = Guid.NewGuid();
+    category.Title = "Blazor";
+    category.Url = "blazor";
+    category.Description = "Categoria relacionada ao Blazor";
+    category.Order = 10;
+    category.Summary = "Blazor Pages";
+    category.Featured = false;
+
+    var insertSql = $@"INSERT INTO [Category] VALUES (@Id, @Title, @Url, @Description, @Order, @Summary, @Featured)";
+
+    connection.Open();
+    using (var transaction = connection.BeginTransaction())
+    {
+        var rows = connection.Execute(insertSql, new
+        {
+            Id = category.Id,
+            Title = category.Title,
+            Url = category.Url,
+            Description = category.Description,
+            Order = category.Order,
+            Summary = category.Summary,
+            Featured = category.Featured
+        }, transaction);
+
+        transaction.Commit();
+        // transaction.Rollback();
+
+        Console.WriteLine($"{rows} linhas inseridas!");
+    }
+
+}
 Console.ReadLine();
